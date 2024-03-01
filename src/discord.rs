@@ -27,6 +27,7 @@ use songbird::{
         payload::{ClientDisconnect, Speaking},
     },
     packet::Packet,
+    typemap::TypeMapKey,
     Config, CoreEvent, Event, EventContext, EventHandler as VoiceEventHandler, SerenityInit,
 };
 
@@ -36,6 +37,11 @@ use crate::{
     audio_play::{self, SongPlayer},
     speech_to_text::SpeechToText,
 };
+
+struct ModelKey;
+impl TypeMapKey for ModelKey {
+    type Value = Arc<Model>;
+}
 
 struct Handler;
 
@@ -51,17 +57,14 @@ struct Receiver {
 }
 
 struct ReceiverInner {
-    model: Model,
+    model: Arc<Model>,
     text_to_speech: DashMap<u32, Mutex<SpeechToText>>,
     user_ids: DashMap<u64, u32>,
     player: SongPlayer,
 }
 
 impl Receiver {
-    pub fn new(player: SongPlayer) -> Self {
-        let model_path = "vosk/model/dutch";
-        let model = Model::new(model_path).expect("Could not create the model");
-
+    pub fn new(model: Arc<Model>, player: SongPlayer) -> Self {
         Self {
             inner: Arc::new(ReceiverInner {
                 model,
@@ -178,6 +181,12 @@ pub async fn run() {
         .await
         .expect("Err creating client");
 
+    let model = Model::new("vosk/model/dutch").expect("Could not create the model");
+    {
+        let mut data = client.data.write().await;
+        data.insert::<ModelKey>(Arc::new(model));
+    }
+
     let _ = client
         .start()
         .await
@@ -209,7 +218,9 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
         let mut player = audio_play::SongPlayer::new(manager.clone(), guild_id);
         player.add_song("max", "max.mp3").await;
-        let evt_receiver = Receiver::new(player);
+
+        let model = ctx.data.read().await.get::<ModelKey>().unwrap().clone();
+        let evt_receiver = Receiver::new(model, player);
 
         handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), evt_receiver.clone());
         handler.add_global_event(CoreEvent::ClientDisconnect.into(), evt_receiver.clone());

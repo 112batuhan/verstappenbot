@@ -44,10 +44,8 @@ impl SpeechToText {
     pub fn finalise(&mut self) -> bool {
         if self.active {
             let result = self.recognizer.final_result();
-            println!("{:?}", &result);
             if let CompleteResult::Single(result) = result {
                 if result.text.contains("max") || result.text.contains("verstappen") {
-                    println!("Max Verstappen has been uttered");
                     return true;
                 }
             }

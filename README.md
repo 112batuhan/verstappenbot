@@ -1,7 +1,7 @@
 # A discord bot.
 Bot listens -> Vosk speech to text model transcribes -> Bot plays a particular song if certain words are heard. 
 
-I made this to get a laugh from my friends while watching f1 together. Code is a little messy. Currently, it should support working in multiple servers, but I haven't tested it. It's definitely inefficent. I made it in one day before the 2024 Bahrain qualifiers.
+I made this to get a laugh from my friends while watching f1 together. Code is a little messy. Currently, it should support working in multiple servers, but I haven't tested it. It's a little inefficent. I made it in one day before the 2024 Bahrain qualifiers.
 
 # How to run
 
