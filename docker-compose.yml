@@ -1,0 +1,9 @@
+services:
+  verstappenbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - DISCORD_TOKEN=${DISCORD_TOKEN}
+    env_file:
+      - .env
