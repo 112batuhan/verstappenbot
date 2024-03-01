@@ -26,8 +26,9 @@ impl SpeechToText {
         }
     }
     pub fn new_with_grammar(model: &Model, grammar: &[&str]) -> Self {
-        let recognizer = Recognizer::new_with_grammar(&model, 48000., grammar)
+        let mut recognizer = Recognizer::new_with_grammar(&model, 48000., grammar)
             .expect("Could not create the Recognizer");
+        recognizer.set_words(true);
         Self {
             recognizer,
             active: false,
@@ -45,9 +46,10 @@ impl SpeechToText {
         if self.active {
             let result = self.recognizer.final_result();
             if let CompleteResult::Single(result) = result {
-                if result.text.contains("max") || result.text.contains("verstappen") {
-                    return true;
-                }
+                return result.result.iter().any(|word| {
+                    println!("{:?}", word);
+                    word.conf > 0.95 && (word.word == "max" || word.word == "verstappen")
+                });
             }
             self.active = false;
         }
