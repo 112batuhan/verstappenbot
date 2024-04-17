@@ -42,17 +42,26 @@ impl SpeechToText {
     }
 
     // TODO: Ugly
-    pub fn finalise(&mut self) -> bool {
+    pub fn finalise(&mut self) -> Option<String> {
         if self.active {
             let result = self.recognizer.final_result();
             if let CompleteResult::Single(result) = result {
-                return result.result.iter().any(|word| {
+                let word_result = result.result.iter().any(|word| {
                     println!("{:?}", word);
                     word.conf > 0.95 && word.word == "intihar"
                 });
+                if word_result {
+                    self.active = false;
+                    return Some("intihar".to_string());
+                }
+                if result.text.contains("as kendini") {
+                    self.active = false;
+                    return Some("as".to_string());
+                }
             }
+
             self.active = false;
         }
-        false
+        None
     }
 }

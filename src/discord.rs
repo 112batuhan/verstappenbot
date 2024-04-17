@@ -80,7 +80,7 @@ impl Receiver {
             ssrc,
             Mutex::new(SpeechToText::new_with_grammar(
                 &self.inner.model,
-                &["intihar"],
+                &["intihar", "as kendini"],
             )),
         );
         self.inner.user_ids.insert(user_id, ssrc);
@@ -103,8 +103,9 @@ impl Receiver {
     pub async fn finalise(&self, ssrc: u32) {
         let listener = self.inner.text_to_speech.get(&ssrc);
         if let Some(listener) = listener {
-            if listener.lock().unwrap().finalise() {
-                self.inner.player.play_song("intihar").await;
+            let finalized = listener.lock().unwrap().finalise();
+            if let Some(finalized) = finalized {
+                self.inner.player.play_song(&finalized).await;
             }
         }
     }
@@ -218,6 +219,7 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
         let mut player = audio_play::SongPlayer::new(manager.clone(), guild_id);
         player.add_song("intihar", "intihar.ogg").await;
+        player.add_song("as", "as.mp3").await;
 
         let model = ctx.data.read().await.get::<ModelKey>().unwrap().clone();
         let evt_receiver = Receiver::new(model, player);

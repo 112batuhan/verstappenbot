@@ -19,6 +19,7 @@ WORKDIR /usr/src/verstappenbot
 COPY --from=rust-builder /usr/src/verstappenbot/target/release/verstappenbot .
 COPY max.mp3 .
 COPY intihar.ogg .
+COPY as.mp3 .
 COPY vosk/model/turkish vosk/model/turkish
 ENV DISCORD_TOKEN=${DISCORD_TOKEN}
 ENTRYPOINT ["./verstappenbot"]
