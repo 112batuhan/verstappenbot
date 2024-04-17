@@ -80,7 +80,7 @@ impl Receiver {
             ssrc,
             Mutex::new(SpeechToText::new_with_grammar(
                 &self.inner.model,
-                &["max", "verstappen"],
+                &["intihar"],
             )),
         );
         self.inner.user_ids.insert(user_id, ssrc);
@@ -104,7 +104,7 @@ impl Receiver {
         let listener = self.inner.text_to_speech.get(&ssrc);
         if let Some(listener) = listener {
             if listener.lock().unwrap().finalise() {
-                self.inner.player.play_song("max").await;
+                self.inner.player.play_song("intihar").await;
             }
         }
     }
@@ -181,7 +181,7 @@ pub async fn run() {
         .await
         .expect("Err creating client");
 
-    let model = Model::new("vosk/model/dutch").expect("Could not create the model");
+    let model = Model::new("vosk/model/turkish").expect("Could not create the model");
     {
         let mut data = client.data.write().await;
         data.insert::<ModelKey>(Arc::new(model));
@@ -217,7 +217,7 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let mut handler = handler_lock.lock().await;
 
         let mut player = audio_play::SongPlayer::new(manager.clone(), guild_id);
-        player.add_song("max", "max.mp3").await;
+        player.add_song("intihar", "intihar.ogg").await;
 
         let model = ctx.data.read().await.get::<ModelKey>().unwrap().clone();
         let evt_receiver = Receiver::new(model, player);

@@ -18,6 +18,7 @@ COPY vosk/lib/vosk_api.h usr/lib/vosk_api.h
 WORKDIR /usr/src/verstappenbot
 COPY --from=rust-builder /usr/src/verstappenbot/target/release/verstappenbot .
 COPY max.mp3 .
-COPY vosk/model/dutch vosk/model/dutch
+COPY intihar.ogg .
+COPY vosk/model/turkish vosk/model/turkish
 ENV DISCORD_TOKEN=${DISCORD_TOKEN}
 ENTRYPOINT ["./verstappenbot"]

@@ -48,7 +48,7 @@ impl SpeechToText {
             if let CompleteResult::Single(result) = result {
                 return result.result.iter().any(|word| {
                     println!("{:?}", word);
-                    word.conf > 0.95 && word.word == "verstappen"
+                    word.conf > 0.95 && word.word == "intihar"
                 });
             }
             self.active = false;
