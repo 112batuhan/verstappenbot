@@ -7,8 +7,12 @@ use songbird::{
     Songbird,
 };
 
+use crate::speech_to_text::ModelLanguage;
+
+pub struct SongPlayerBuilder{}
+
 pub struct SongPlayer {
-    pub songs: HashMap<String, Compressed>,
+    pub songs: HashMap<(String, ModelLanguage), Compressed>,
     pub client: Arc<Songbird>,
     pub guild_id: GuildId,
 }
@@ -20,7 +24,7 @@ impl SongPlayer {
             guild_id,
         }
     }
-    pub async fn add_song(&mut self, name: &str, song_path: &str) {
+    pub async fn add_song(&mut self, name: &str, model_language: ModelLanguage, song_path: &str) {
         let src = Compressed::new(
             File::new(song_path.to_string()).into(),
             Bitrate::BitsPerSecond(193_000),
@@ -28,12 +32,12 @@ impl SongPlayer {
         .await
         .expect("These parameters are well-defined.");
         let loader_handler = src.raw.spawn_loader();
-        self.songs.insert(name.to_string(), src);
+        self.songs.insert((name.to_string(), model_language), src);
         let _ = loader_handler.join();
     }
 
-    pub async fn play_song(&self, name: &str) {
-        if let Some(source) = self.songs.get(name) {
+    pub async fn play_song(&self, name: &str, model_language: ModelLanguage) {
+        if let Some(source) = self.songs.get(&(name.to_string(), model_language)) {
             if let Some(handler_lock) = self.client.get(self.guild_id) {
                 let mut handler = handler_lock.lock().await;
 

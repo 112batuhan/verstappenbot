@@ -18,3 +18,7 @@ Manually copying lib files to target dir makes cargo recompile it all. I might f
 - I might make it public after solving inefficient parts.
 - Make dev experience better (build script and copy without recompile)
   
+
+TODO:
+- Need to set songs with model, recognition type, song, and key. Do a builder pattern so we can make it easier.
+- Proper error handling.

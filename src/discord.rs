@@ -35,12 +35,18 @@ use vosk::Model;
 
 use crate::{
     audio_play::{self, SongPlayer},
-    speech_to_text::SpeechToText,
+    speech_to_text::{ModelLanguage, SpeechToText},
 };
+
+
+struct ModelEntry {
+    model: Model,
+    language: ModelLanguage,
+}
 
 struct ModelKey;
 impl TypeMapKey for ModelKey {
-    type Value = Arc<Model>;
+    type Value = Arc<Vec<ModelEntry>>;
 }
 
 struct Handler;
@@ -52,23 +58,43 @@ impl EventHandler for Handler {
     }
 }
 
+struct ReceiverBuilder{
+    models: Arc<Vec<ModelEntry>>,
+    player: SongPlayer,
+}
+
+
+impl ReceiverBuilder {
+    pub fn new(models: Arc<Vec<ModelEntry>>) -> Self {
+        Self {
+            models,
+            player: SongPlayer::new(),
+        }
+    }
+
+    pub fn build(&self) -> Receiver {
+        Receiver::new(self.models.clone(), self.player.clone())
+    }
+
+
+#[derive(Clone)]
 struct Receiver {
     inner: Arc<ReceiverInner>,
 }
 
 struct ReceiverInner {
-    model: Arc<Model>,
-    text_to_speech: DashMap<u32, Mutex<SpeechToText>>,
+    models: Arc<Vec<ModelEntry>>,
+    listeners: DashMap<u32, Vec<Mutex<SpeechToText>>>,
     user_ids: DashMap<u64, u32>,
     player: SongPlayer,
 }
 
 impl Receiver {
-    pub fn new(model: Arc<Model>, player: SongPlayer) -> Self {
+    pub fn new(models: Arc<Vec<ModelEntry>>, player: SongPlayer) -> Self {
         Self {
             inner: Arc::new(ReceiverInner {
-                model,
-                text_to_speech: DashMap::new(),
+                models,
+                listeners: DashMap::new(),
                 user_ids: DashMap::new(),
                 player,
             }),
@@ -76,43 +102,48 @@ impl Receiver {
     }
 
     pub fn add_listener(&self, ssrc: u32, user_id: u64) {
-        self.inner.text_to_speech.insert(
-            ssrc,
-            Mutex::new(SpeechToText::new_with_grammar(
-                &self.inner.model,
-                &["intihar", "as kendini"],
-            )),
-        );
+        let speech_to_text_instances = self
+            .inner
+            .models
+            .iter()
+            .map(|model_entry| {
+                Mutex::new(SpeechToText::new_with_grammar(
+                    &model_entry.model,
+                    model_entry.language,
+                    &["intihar".to_string(), "as kendini".to_string()],
+                    &["intihar".to_string()],
+                    &["as kendini".to_string()],
+                ))
+            })
+            .collect();
+
+        self.inner.listeners.insert(ssrc, speech_to_text_instances);
         self.inner.user_ids.insert(user_id, ssrc);
     }
 
     pub fn remove_listener(&self, user_id: u64) {
         let ssrc = self.inner.user_ids.remove(&user_id);
         if let Some(ssrc) = ssrc {
-            self.inner.text_to_speech.remove(&ssrc.1);
+            self.inner.listeners.remove(&ssrc.1);
         }
     }
 
     pub fn listen(&self, ssrc: u32, audio: &[i16]) {
-        self.inner
-            .text_to_speech
-            .get(&ssrc)
-            .map(|listener| listener.lock().unwrap().listen(&audio));
-    }
-
-    pub async fn finalise(&self, ssrc: u32) {
-        let listener = self.inner.text_to_speech.get(&ssrc);
-        if let Some(listener) = listener {
-            let finalized = listener.lock().unwrap().finalise();
-            if let Some(finalized) = finalized {
-                self.inner.player.play_song(&finalized).await;
+        if let Some(listeners) = self.inner.listeners.get(&ssrc) {
+            for listener in listeners.iter() {
+                listener.lock().unwrap().listen(&audio);
             }
         }
     }
 
-    pub fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
+    pub async fn finalise(&self, ssrc: u32) {
+        if let Some(listeners) = self.inner.listeners.get(&ssrc) {
+            for listener in listeners.iter() {
+                let finalized = listener.lock().unwrap().finalise();
+                if let Some((finalized, language)) = finalized {
+                    self.inner.player.play_song(&finalized, language).await;
+                }
+            }
         }
     }
 }
@@ -183,9 +214,13 @@ pub async fn run() {
         .expect("Err creating client");
 
     let model = Model::new("vosk/model/turkish").expect("Could not create the model");
+    let models = vec![ModelEntry {
+        model,
+        language: ModelLanguage::TURKISH,
+    }];
     {
         let mut data = client.data.write().await;
-        data.insert::<ModelKey>(Arc::new(model));
+        data.insert::<ModelKey>(Arc::new(models));
     }
 
     let _ = client
@@ -218,8 +253,12 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let mut handler = handler_lock.lock().await;
 
         let mut player = audio_play::SongPlayer::new(manager.clone(), guild_id);
-        player.add_song("intihar", "intihar.ogg").await;
-        player.add_song("as", "as.mp3").await;
+        player
+            .add_song("intihar", ModelLanguage::TURKISH, "intihar.ogg")
+            .await;
+        player
+            .add_song("as", ModelLanguage::TURKISH, "as.mp3")
+            .await;
 
         let model = ctx.data.read().await.get::<ModelKey>().unwrap().clone();
         let evt_receiver = Receiver::new(model, player);
