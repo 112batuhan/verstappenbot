@@ -5,7 +5,7 @@ I made this to get a laugh from my friends while watching f1 together. Code is a
 
 # How to run
 
-Install docker composer and use `docker compose up`! or follow following instructions.
+Install docker composer and use `docker compose up`! Don't forget to set `DISCORD_TOKEN` env variable. Or follow the following instructions.
 
 Only external dependency you need is Opus codec that discord uses. If you are on linux/Mac, You can get it from your package manager. You need to manually build it on windows. Read the [original songbird repo](https://github.com/serenity-rs/songbird?tab=readme-ov-file#dependencies]) for more info.
 
@@ -20,5 +20,6 @@ Manually copying lib files to target dir makes cargo recompile it all. I might f
   
 
 TODO:
-- Need to set songs with model, recognition type, song, and key. Do a builder pattern so we can make it easier.
+- Change serenity framework to poise.
 - Proper error handling.
+- Better connection handling. Currently we have to manually input channel id and bot won't be reset when disconnected.

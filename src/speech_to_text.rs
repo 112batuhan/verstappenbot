@@ -19,11 +19,11 @@ impl SpeechToText {
     pub fn new_with_grammar(
         model: &Model,
         language: ModelLanguage,
-        grammar: &[String],
         words: &[String],
         phrases: &[String],
     ) -> Self {
-        let mut recognizer = Recognizer::new_with_grammar(&model, 48000., grammar)
+        let grammar: Vec<String> = words.iter().chain(phrases.iter()).cloned().collect();
+        let mut recognizer = Recognizer::new_with_grammar(&model, 48000., &grammar)
             .expect("Could not create the Recognizer");
         recognizer.set_words(true);
         Self {
@@ -41,8 +41,11 @@ impl SpeechToText {
         self.active = true;
     }
 
+    // be cautious as there are a lot of "word" here.
+    // One is Vosk result word, other one is words we are looking for.
     pub fn finalise(&mut self) -> Option<(String, ModelLanguage)> {
         if self.active {
+            self.active = false;
             let result = self.recognizer.final_result();
             if let CompleteResult::Single(result) = result {
                 let word_result = result.result.iter().find(|word| {
@@ -59,8 +62,6 @@ impl SpeechToText {
                     }
                 }
             }
-
-            self.active = false;
         }
         None
     }

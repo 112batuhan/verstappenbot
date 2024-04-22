@@ -6,6 +6,7 @@ use std::{
 use dashmap::DashMap;
 
 use serenity::{
+    all::GuildId,
     async_trait,
     client::{Client, Context, EventHandler},
     framework::{
@@ -22,22 +23,94 @@ use serenity::{
 
 use songbird::{
     driver::DecodeMode,
-    model::{
-        id::UserId,
-        payload::{ClientDisconnect, Speaking},
-    },
-    packet::Packet,
+    model::payload::{ClientDisconnect, Speaking},
     typemap::TypeMapKey,
     Config, CoreEvent, Event, EventContext, EventHandler as VoiceEventHandler, SerenityInit,
+    Songbird,
 };
 
 use vosk::Model;
 
 use crate::{
-    audio_play::{self, SongPlayer},
+    audio_play::SongPlayer,
     speech_to_text::{ModelLanguage, SpeechToText},
 };
 
+struct Sound {
+    name: String,
+    recognition_type: RecognitionType,
+    language: ModelLanguage,
+    path: String,
+}
+struct SoundBoard {
+    sounds: Vec<Sound>,
+}
+
+impl SoundBoard {
+    pub fn new() -> Self {
+        Self { sounds: Vec::new() }
+    }
+    pub fn add_song(
+        mut self,
+        name: &str,
+        recognition_type: RecognitionType,
+        language: ModelLanguage,
+        path: &str,
+    ) -> Self {
+        self.sounds.push(Sound {
+            name: name.to_string(),
+            recognition_type,
+            language,
+            path: path.to_string(),
+        });
+        self
+    }
+    pub async fn get_player(&self, client: Arc<Songbird>, guild_id: GuildId) -> SongPlayer {
+        let mut player = SongPlayer::new(client, guild_id);
+        for sound in &self.sounds {
+            player
+                .add_song(&sound.name, sound.language, &sound.path)
+                .await;
+        }
+        player
+    }
+
+    pub fn get_phrases(&self) -> Vec<String> {
+        self.sounds
+            .iter()
+            .filter_map(|sound| {
+                if let RecognitionType::PHRASE = sound.recognition_type {
+                    Some(sound.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    pub fn get_words(&self) -> Vec<String> {
+        self.sounds
+            .iter()
+            .filter_map(|sound| {
+                if let RecognitionType::WORD = sound.recognition_type {
+                    Some(sound.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn get_receiver(&self, models: Arc<Vec<ModelEntry>>, player: SongPlayer) -> Receiver {
+        let phrases = self.get_phrases();
+        let words = self.get_words();
+        Receiver::new(models, player, words, phrases)
+    }
+}
+
+enum RecognitionType {
+    WORD,
+    PHRASE,
+}
 
 struct ModelEntry {
     model: Model,
@@ -58,25 +131,6 @@ impl EventHandler for Handler {
     }
 }
 
-struct ReceiverBuilder{
-    models: Arc<Vec<ModelEntry>>,
-    player: SongPlayer,
-}
-
-
-impl ReceiverBuilder {
-    pub fn new(models: Arc<Vec<ModelEntry>>) -> Self {
-        Self {
-            models,
-            player: SongPlayer::new(),
-        }
-    }
-
-    pub fn build(&self) -> Receiver {
-        Receiver::new(self.models.clone(), self.player.clone())
-    }
-
-
 #[derive(Clone)]
 struct Receiver {
     inner: Arc<ReceiverInner>,
@@ -87,16 +141,25 @@ struct ReceiverInner {
     listeners: DashMap<u32, Vec<Mutex<SpeechToText>>>,
     user_ids: DashMap<u64, u32>,
     player: SongPlayer,
+    phrases: Vec<String>,
+    words: Vec<String>,
 }
 
 impl Receiver {
-    pub fn new(models: Arc<Vec<ModelEntry>>, player: SongPlayer) -> Self {
+    pub fn new(
+        models: Arc<Vec<ModelEntry>>,
+        player: SongPlayer,
+        words: Vec<String>,
+        phrases: Vec<String>,
+    ) -> Self {
         Self {
             inner: Arc::new(ReceiverInner {
                 models,
                 listeners: DashMap::new(),
                 user_ids: DashMap::new(),
                 player,
+                words,
+                phrases,
             }),
         }
     }
@@ -110,9 +173,8 @@ impl Receiver {
                 Mutex::new(SpeechToText::new_with_grammar(
                     &model_entry.model,
                     model_entry.language,
-                    &["intihar".to_string(), "as kendini".to_string()],
-                    &["intihar".to_string()],
-                    &["as kendini".to_string()],
+                    &self.inner.words,
+                    &self.inner.phrases,
                 ))
             })
             .collect();
@@ -213,11 +275,17 @@ pub async fn run() {
         .await
         .expect("Err creating client");
 
-    let model = Model::new("vosk/model/turkish").expect("Could not create the model");
-    let models = vec![ModelEntry {
-        model,
-        language: ModelLanguage::TURKISH,
-    }];
+    let models = vec![
+        ModelEntry {
+            model: Model::new("vosk/model/turkish").expect("Could not create the model"),
+            language: ModelLanguage::TURKISH,
+        },
+        ModelEntry {
+            model: Model::new("vosk/model/dutch").expect("Could not create the model"),
+            language: ModelLanguage::DUTCH,
+        },
+    ];
+
     {
         let mut data = client.data.write().await;
         data.insert::<ModelKey>(Arc::new(models));
@@ -243,25 +311,41 @@ async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     let guild_id = msg.guild_id.unwrap();
 
-    let manager = songbird::get(ctx)
+    let songbird_client = songbird::get(ctx)
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
-    if let Ok(handler_lock) = manager.join(guild_id, connect_to).await {
+    if let Ok(handler_lock) = songbird_client.join(guild_id, connect_to).await {
         // NOTE: this skips listening for the actual connection result.
         let mut handler = handler_lock.lock().await;
 
-        let mut player = audio_play::SongPlayer::new(manager.clone(), guild_id);
-        player
-            .add_song("intihar", ModelLanguage::TURKISH, "intihar.ogg")
-            .await;
-        player
-            .add_song("as", ModelLanguage::TURKISH, "as.mp3")
-            .await;
+        let sound_board = SoundBoard::new()
+            .add_song(
+                "intihar",
+                RecognitionType::WORD,
+                ModelLanguage::TURKISH,
+                "intihar.ogg",
+            )
+            .add_song(
+                "as kendini",
+                RecognitionType::PHRASE,
+                ModelLanguage::TURKISH,
+                "as.mp3",
+            )
+            .add_song(
+                "verstappen",
+                RecognitionType::WORD,
+                ModelLanguage::DUTCH,
+                "max.mp3",
+            );
 
+        let player = sound_board
+            .get_player(songbird_client.clone(), guild_id)
+            .await;
         let model = ctx.data.read().await.get::<ModelKey>().unwrap().clone();
-        let evt_receiver = Receiver::new(model, player);
+
+        let evt_receiver = sound_board.get_receiver(model, player);
 
         handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), evt_receiver.clone());
         handler.add_global_event(CoreEvent::ClientDisconnect.into(), evt_receiver.clone());
