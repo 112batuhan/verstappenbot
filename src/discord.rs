@@ -75,29 +75,41 @@ impl SoundBoard {
         player
     }
 
-    pub fn get_phrases(&self) -> Vec<String> {
-        self.sounds
+    pub fn get_phrases(&self) -> RecognitionEntries {
+        let phrases = self
+            .sounds
             .iter()
             .filter_map(|sound| {
                 if let RecognitionType::PHRASE = sound.recognition_type {
-                    Some(sound.name.clone())
+                    Some(RecognitionEntry {
+                        content: sound.name.clone(),
+                        language: sound.language,
+                    })
                 } else {
                     None
                 }
             })
-            .collect()
+            .collect();
+
+        RecognitionEntries { inner: phrases }
     }
-    pub fn get_words(&self) -> Vec<String> {
-        self.sounds
+    pub fn get_words(&self) -> RecognitionEntries {
+        let words = self
+            .sounds
             .iter()
             .filter_map(|sound| {
                 if let RecognitionType::WORD = sound.recognition_type {
-                    Some(sound.name.clone())
+                    Some(RecognitionEntry {
+                        content: sound.name.clone(),
+                        language: sound.language,
+                    })
                 } else {
                     None
                 }
             })
-            .collect()
+            .collect();
+
+        RecognitionEntries { inner: words }
     }
 
     pub fn get_receiver(&self, models: Arc<Vec<ModelEntry>>, player: SongPlayer) -> Receiver {
@@ -110,6 +122,29 @@ impl SoundBoard {
 enum RecognitionType {
     WORD,
     PHRASE,
+}
+
+struct RecognitionEntries {
+    inner: Vec<RecognitionEntry>,
+}
+struct RecognitionEntry {
+    content: String,
+    language: ModelLanguage,
+}
+
+impl RecognitionEntries {
+    pub fn filter_by_language(&self, language: ModelLanguage) -> Vec<String> {
+        self.inner
+            .iter()
+            .filter_map(|entry| {
+                if entry.language == language {
+                    Some(entry.content.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 struct ModelEntry {
@@ -141,16 +176,16 @@ struct ReceiverInner {
     listeners: DashMap<u32, Vec<Mutex<SpeechToText>>>,
     user_ids: DashMap<u64, u32>,
     player: SongPlayer,
-    phrases: Vec<String>,
-    words: Vec<String>,
+    phrases: RecognitionEntries,
+    words: RecognitionEntries,
 }
 
 impl Receiver {
     pub fn new(
         models: Arc<Vec<ModelEntry>>,
         player: SongPlayer,
-        words: Vec<String>,
-        phrases: Vec<String>,
+        words: RecognitionEntries,
+        phrases: RecognitionEntries,
     ) -> Self {
         Self {
             inner: Arc::new(ReceiverInner {
@@ -170,11 +205,13 @@ impl Receiver {
             .models
             .iter()
             .map(|model_entry| {
+                let words = self.inner.words.filter_by_language(model_entry.language);
+                let phrases = self.inner.phrases.filter_by_language(model_entry.language);
                 Mutex::new(SpeechToText::new_with_grammar(
                     &model_entry.model,
                     model_entry.language,
-                    &self.inner.words,
-                    &self.inner.phrases,
+                    &words,
+                    &phrases,
                 ))
             })
             .collect();
