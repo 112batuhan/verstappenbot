@@ -9,8 +9,6 @@ use songbird::{
 
 use crate::speech_to_text::ModelLanguage;
 
-pub struct SongPlayerBuilder{}
-
 pub struct SongPlayer {
     pub songs: HashMap<(String, ModelLanguage), Compressed>,
     pub client: Arc<Songbird>,
