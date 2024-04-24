@@ -5,19 +5,26 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.82"
 dashmap = "5.5.3"
 dotenv = "0.15.0"
 serenity = { version = "0.12", features = [
     "cache",
-    "framework",
-    "standard_framework",
     "voice",
     "http",
     "rustls_backend",
 ] }
 songbird = { version = "0.4.0", features = ["serenity", "receive"] }
-symphonia = { features = ["mp3"], version = "0.5.2" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+symphonia = { features = ["all"], version = "0.5.2" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 vosk = "0.2.0"
+poise = { version = "0.6", default-features = false, features = ["cache"] }
+uuid = { version = "1.8.0", features = ["v4", "fast-rng"] }
+sqlx = { version = "0.7.4", features = [
+    "postgres",
+    "runtime-tokio-native-tls",
+    "time",
+    "uuid",
+] }
