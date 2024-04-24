@@ -6,13 +6,9 @@ services:
       args:
         - DISCORD_TOKEN=${DISCORD_TOKEN}
         - DATABASE_URL=${DATABASE_URL}
-        - PGHOST=localhost
-        - PGPORT=5432
-        - PGUSER=postgres
-        - PGPASSWORD=password
-        - PGDATABASE=postgres
     env_file:
       - .env
+
   postgres:
     image: postgres:16.2-alpine
     container_name: postgres-verstappenbot

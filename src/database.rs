@@ -21,6 +21,8 @@ impl Database {
         )
         .await
         .map_err(anyhow::Error::from)?;
+
+        tracing::info!("Connected to database");
         Ok(Self { pool })
     }
 

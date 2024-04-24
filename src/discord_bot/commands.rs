@@ -149,7 +149,7 @@ pub async fn add_sound(
 
     let _ = ctx
         .reply(&format!(
-            "Saved {}, use join command to invite the bot again.",
+            "Saved {}, use join command to invite the bot.",
             attachment.filename
         ))
         .await;
@@ -180,7 +180,7 @@ pub async fn remove_sound(ctx: Context<'_>, prompt: String) -> Result<()> {
 
     let _ = ctx
         .reply(&format!(
-            "Removed {}, use join command to invite the bot again.",
+            "Removed {}, use join command to invite the bot.",
             deleted.file_name
         ))
         .await;
