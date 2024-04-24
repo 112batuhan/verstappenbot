@@ -36,10 +36,9 @@ impl SongPlayer {
 
     pub async fn play_song(&self, name: &str, model_language: ModelLanguage) {
         if let Some(source) = self.songs.get(&(name.to_string(), model_language)) {
-            if let Some(handler_lock) = self.client.get(self.guild_id) {
-                let mut handler = handler_lock.lock().await;
-
-                let _sound = handler.play_input(source.new_handle().into());
+            if let Some(songbird_handler_lock) = self.client.get(self.guild_id) {
+                let mut songbird_handler = songbird_handler_lock.lock().await;
+                let _sound = songbird_handler.play_input(source.new_handle().into());
             }
         }
     }

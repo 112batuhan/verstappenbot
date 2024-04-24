@@ -1,4 +1,28 @@
-use self::{audio_play::SongPlayer, events::Receiver};
+//! It's a bit complicated to keep track of the [`songbird::handler::Call`] and [`events::VoiceHandler`] in sync.
+//! Here's a brief explanation of how it works:
+//!
+//! - Join is handled in [`commands::join()`]. This adds a new [`events::VoiceHandler`] handler
+//!   to the [`songbird::handler::Call`] handler which is managed by [`songbird::manager::Songbird`].
+//!
+//! - If [`commands::join()`] command is used when bot is already connected to a channel
+//!   old [`events::VoiceHandler`] handler is removed and new handler is added to the [`songbird::handler::Call`].
+//!
+//! - If bot is dragged into a new channel (aka channel movement), then joining a new channel doesn't replace the [`events::VoiceHandler`].
+//!   Instead the recognizers and user id's that are in the [`events::VoiceHandler`] gets reset with [`events::VoiceHandler::reset_listeners()`]
+//!
+//! - [`commands::leave()`] command only disconnects the bot. It doesn't drop the [`songbird::handler::Call`]
+//!   hence [`events::VoiceHandler`] also stays.
+//!   This also triggers `voice_state_update` event in [`events::DefaultHandler`].
+//!   Which will eventually drop the [`songbird::handler::Call`]. (Explained in the next point)
+//!
+//! - [`songbird::handler::Call`] is dropped by checking if the bot is alone or not in a channel when
+//!   `voice_state_update` event is fired in [`events::DefaultHandler`].
+//!   If that's the case [`songbird::handler::Call`] is removed by calling [`songbird::manager::Songbird::remove()`].
+//!   This also drops the [`events::VoiceHandler`].
+//!
+//! Sounds robust. Until something will eventually break as always.
+
+use self::{audio_play::SongPlayer, events::VoiceHandler};
 use std::{env, sync::Arc};
 
 use poise::{Framework, FrameworkOptions, PrefixFrameworkOptions};
@@ -8,7 +32,7 @@ use songbird::{driver::DecodeMode, Config, Songbird};
 
 use vosk::Model;
 
-use crate::{discord::events::Handler, speech_to_text::ModelLanguage};
+use crate::{discord::events::DefaultHandler, speech_to_text::ModelLanguage};
 
 pub mod audio_play;
 pub mod commands;
@@ -90,10 +114,14 @@ impl SoundBoard {
         RecognitionEntries { inner: words }
     }
 
-    pub fn get_receiver(&self, models: Arc<Vec<ModelEntry>>, player: SongPlayer) -> Receiver {
+    pub fn get_voice_handler(
+        &self,
+        models: Arc<Vec<ModelEntry>>,
+        player: SongPlayer,
+    ) -> VoiceHandler {
         let phrases = self.get_phrases();
         let words = self.get_words();
-        Receiver::new(models, player, words, phrases)
+        VoiceHandler::new(models, player, words, phrases)
     }
 }
 
@@ -182,7 +210,7 @@ pub async fn run() {
 
     let mut client = serenity::Client::builder(&token, intents)
         .voice_manager_arc(songbird_client)
-        .event_handler(Handler {
+        .event_handler(DefaultHandler {
             models,
             songbird_client: songbird_client_clone,
         })

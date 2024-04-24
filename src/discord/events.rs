@@ -3,13 +3,14 @@ use std::sync::{Arc, Mutex};
 use dashmap::DashMap;
 
 use serenity::{
+    all::GuildId,
     async_trait,
     client::{Context, EventHandler},
     model::{gateway::Ready, voice::VoiceState},
 };
-
 use songbird::{
     events::EventHandler as VoiceEventHandler,
+    id::ChannelId,
     model::payload::{ClientDisconnect, Speaking},
     Event, EventContext, Songbird,
 };
@@ -18,13 +19,25 @@ use crate::speech_to_text::SpeechToText;
 
 use super::{audio_play::SongPlayer, ModelEntry, RecognitionEntries};
 
-pub struct Handler {
+pub fn check_if_channel_empty(ctx: &Context, guild_id: GuildId, channel_id: ChannelId) -> bool {
+    let someone_there = ctx
+        .cache
+        .guild(guild_id)
+        .unwrap()
+        .voice_states
+        .iter()
+        .filter(|(_, state)| state.user_id != ctx.cache.current_user().id)
+        .any(|(_id, state)| state.channel_id == Some(ChannelId::from(channel_id).0.into()));
+    !someone_there
+}
+
+pub struct DefaultHandler {
     pub models: Arc<Vec<ModelEntry>>,
     pub songbird_client: Arc<Songbird>,
 }
 
 #[async_trait]
-impl EventHandler for Handler {
+impl EventHandler for DefaultHandler {
     async fn ready(&self, _: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
     }
@@ -34,14 +47,37 @@ impl EventHandler for Handler {
         _: Option<VoiceState>,
         new_voice_state: VoiceState,
     ) {
-        if new_voice_state.user_id != ctx.cache.current_user().id {
-            return;
-        }
-        // bot disconnected from voice channel
-        if new_voice_state.channel_id.is_none() {
-            if let Some(guild_id) = new_voice_state.guild_id {
+        // Basically check if the channel that the bot is in is empty everytime someone joins or leaves.
+        // To avoid deadlock, we have to call remove outside of the lock
+        if let Some(guild_id) = new_voice_state.guild_id {
+            let remove = if let Some(call_handler_lock) = self.songbird_client.get(guild_id) {
+                let call_handler = call_handler_lock.lock().await;
+                if let Some(current_channel) = call_handler.current_channel() {
+                    if check_if_channel_empty(&ctx, guild_id, current_channel) {
+                        tracing::info!(
+                            "Removing call_handler because the channel is empty:{}-{:?}",
+                            guild_id,
+                            current_channel
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    // Remove the call_handler if it's not in a channel. This kills reconnect attemts
+                    // But it's better to keep call_handlers in sync then to have a reconnect attempt
+                    tracing::info!(
+                        "Removing call_handler because it's not in a channel: {:?}",
+                        guild_id
+                    );
+                    true
+                }
+            } else {
+                false
+            };
+            if remove {
                 if let Err(err) = self.songbird_client.remove(guild_id).await {
-                    tracing::error!("Failed to remove handler: {:?}", err);
+                    tracing::error!("Failed to remove call_handler: {:?}", err);
                 }
             }
         }
@@ -49,7 +85,7 @@ impl EventHandler for Handler {
 }
 
 #[derive(Clone)]
-pub struct Receiver {
+pub struct VoiceHandler {
     inner: Arc<ReceiverInner>,
 }
 
@@ -62,7 +98,7 @@ struct ReceiverInner {
     words: RecognitionEntries,
 }
 
-impl Receiver {
+impl VoiceHandler {
     pub fn new(
         models: Arc<Vec<ModelEntry>>,
         player: SongPlayer,
@@ -135,7 +171,7 @@ impl Receiver {
 }
 
 #[async_trait]
-impl VoiceEventHandler for Receiver {
+impl VoiceEventHandler for VoiceHandler {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         use EventContext as Ctx;
 
@@ -168,7 +204,7 @@ impl VoiceEventHandler for Receiver {
                 // This happens when the bot is disconnected or the bot is moved to another channel
                 self.reset_listeners();
                 if let Some(reason) = &disconnect_data.reason {
-                    tracing::info!("Driver disconnected: {:?}", reason);
+                    tracing::debug!("Driver disconnected: {:?}", reason);
                 }
             }
             Ctx::DriverReconnect(reconnect_data) => {
