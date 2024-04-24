@@ -27,7 +27,7 @@ pub fn check_if_channel_empty(ctx: &Context, guild_id: GuildId, channel_id: Chan
         .voice_states
         .iter()
         .filter(|(_, state)| state.user_id != ctx.cache.current_user().id)
-        .any(|(_id, state)| state.channel_id == Some(ChannelId::from(channel_id).0.into()));
+        .any(|(_id, state)| state.channel_id == Some(channel_id.0.into()));
     !someone_there
 }
 
@@ -148,7 +148,7 @@ impl VoiceHandler {
     pub fn listen(&self, ssrc: u32, audio: &[i16]) {
         if let Some(listeners) = self.inner.listeners.get(&ssrc) {
             for listener in listeners.iter() {
-                listener.lock().unwrap().listen(&audio);
+                listener.lock().unwrap().listen(audio);
             }
         }
     }
@@ -189,7 +189,7 @@ impl VoiceEventHandler for VoiceHandler {
             Ctx::VoiceTick(tick) => {
                 for (ssrc, data) in &tick.speaking {
                     if let Some(decoded_voice) = data.decoded_voice.as_ref() {
-                        self.listen(*ssrc, &decoded_voice);
+                        self.listen(*ssrc, decoded_voice);
                     }
                 }
                 for ssrc in &tick.silent {

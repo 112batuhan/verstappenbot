@@ -23,7 +23,7 @@ impl SpeechToText {
         phrases: &[String],
     ) -> Self {
         let grammar: Vec<String> = words.iter().chain(phrases.iter()).cloned().collect();
-        let mut recognizer = Recognizer::new_with_grammar(&model, 48000., &grammar)
+        let mut recognizer = Recognizer::new_with_grammar(model, 48000., &grammar)
             .expect("Could not create the Recognizer");
         recognizer.set_words(true);
         Self {
@@ -50,7 +50,7 @@ impl SpeechToText {
             if let CompleteResult::Single(result) = result {
                 let word_result = result.result.iter().find(|word| {
                     println!("{:?}", word);
-                    word.conf > 0.999 && self.words.iter().any(|w| w == &word.word)
+                    word.conf > 0.999 && self.words.iter().any(|w| w == word.word)
                 });
                 if let Some(word) = word_result {
                     return Some((word.word.to_string(), self.language));

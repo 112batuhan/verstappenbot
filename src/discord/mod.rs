@@ -44,6 +44,8 @@ pub struct Sound {
     language: ModelLanguage,
     path: String,
 }
+
+#[derive(Default)]
 pub struct SoundBoard {
     sounds: Vec<Sound>,
 }
