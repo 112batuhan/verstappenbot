@@ -32,7 +32,7 @@ use songbird::{driver::DecodeMode, Config, Songbird};
 
 use vosk::Model;
 
-use crate::{discord::events::DefaultHandler, speech_to_text::ModelLanguage};
+use crate::{discord_bot::events::DefaultHandler, speech_to_text::ModelLanguage};
 
 pub mod audio_play;
 pub mod commands;
