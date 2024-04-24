@@ -25,6 +25,7 @@
 use self::{audio_play::SongPlayer, events::VoiceHandler};
 use std::{env, sync::Arc};
 
+use dashmap::DashMap;
 use poise::{Framework, FrameworkOptions, PrefixFrameworkOptions};
 
 use serenity::all::{GatewayIntents, GuildId};
@@ -32,7 +33,9 @@ use songbird::{driver::DecodeMode, Config, Songbird};
 
 use vosk::Model;
 
-use crate::{discord_bot::events::DefaultHandler, speech_to_text::ModelLanguage};
+use crate::{
+    database::Database, discord_bot::events::DefaultHandler, speech_to_text::ModelLanguage,
+};
 
 pub mod audio_play;
 pub mod commands;
@@ -163,6 +166,8 @@ pub struct ModelEntry {
 pub struct Data {
     songbird: Arc<songbird::Songbird>,
     models: Arc<Vec<ModelEntry>>,
+    database: Arc<Database>,
+    voice_event_handlers: Arc<DashMap<GuildId, VoiceHandler>>,
 }
 
 type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
@@ -176,7 +181,14 @@ pub async fn run() {
     let songbird_client = Songbird::serenity_from_config(songbird_config);
 
     let framework_options = FrameworkOptions {
-        commands: vec![commands::join(), commands::leave(), commands::ping()],
+        commands: vec![
+            commands::join(),
+            commands::leave(),
+            commands::ping(),
+            commands::add_sound(),
+            commands::remove_sound(),
+            commands::list_sounds(),
+        ],
         prefix_options: PrefixFrameworkOptions {
             prefix: Some(".".to_string()),
             ..Default::default()
@@ -193,6 +205,10 @@ pub async fn run() {
             model: Model::new("vosk/model/dutch").expect("Could not create the model"),
             language: ModelLanguage::DUTCH,
         },
+        ModelEntry {
+            model: Model::new("vosk/model/english").expect("Could not create the model"),
+            language: ModelLanguage::ENGLISH,
+        },
     ];
     let models = Arc::new(models);
     let models_clone = models.clone();
@@ -203,6 +219,8 @@ pub async fn run() {
             Ok(Data {
                 songbird: songbird_client_clone,
                 models: models_clone,
+                database: Arc::new(Database::new().await.unwrap()),
+                voice_event_handlers: Arc::new(DashMap::new()),
             })
         })
     });

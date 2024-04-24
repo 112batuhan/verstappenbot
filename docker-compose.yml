@@ -5,5 +5,21 @@ services:
       dockerfile: Dockerfile
       args:
         - DISCORD_TOKEN=${DISCORD_TOKEN}
+        - DATABASE_URL=${DATABASE_URL}
     env_file:
       - .env
+  postgres:
+    image: postgres:16.2-alpine
+    container_name: postgres-verstappenbot
+    restart: always
+    ports:
+      - "5432:5432"
+    profiles:
+      - all
+      - postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+
+    volumes:
+      - local_pgdata:/var/lib/postgresql/data

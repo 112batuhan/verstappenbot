@@ -1,7 +1,7 @@
 # A discord bot.
 Bot listens -> Vosk speech to text model transcribes -> Bot plays a particular song if certain words are heard. 
 
-I made this to get a laugh from my friends while watching f1 together. Code is a little messy. Currently, it should support working in multiple servers, but I haven't tested it. It's a little inefficent. I made it in one day before the 2024 Bahrain qualifiers.
+I made this to get a laugh from my friends while watching f1 together. It used to support only one prompt. I liked the idea so much, I made it into a bot that is usable by everyone.
 
 # How to run
 
@@ -14,12 +14,10 @@ After ensuring that can run it, to actually run it, change `.env.example` into `
 Manually copying lib files to target dir makes cargo recompile it all. I might fix that in future. 
 
 # I might update it in future. 
-- I'm not satisfied with the code structure.
-- I might make it public after solving inefficient parts.
 - Make dev experience better (build script and copy without recompile)
   
 
 TODO:
-- Change serenity framework to poise.
-- Proper error handling.
-- Better connection handling. Currently we have to manually input channel id and bot won't be reset when disconnected.
+- sound storage
+- database
+

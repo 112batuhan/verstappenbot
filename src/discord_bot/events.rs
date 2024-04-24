@@ -117,24 +117,31 @@ impl VoiceHandler {
         }
     }
 
-    pub fn add_listener(&self, ssrc: u32, user_id: u64) {
-        let speech_to_text_instances = self
-            .inner
+    fn get_speech_to_text_instances(&self) -> Vec<Mutex<SpeechToText>> {
+        self.inner
             .models
             .iter()
-            .map(|model_entry| {
+            .filter_map(|model_entry| {
                 let words = self.inner.words.filter_by_language(model_entry.language);
                 let phrases = self.inner.phrases.filter_by_language(model_entry.language);
-                Mutex::new(SpeechToText::new_with_grammar(
-                    &model_entry.model,
-                    model_entry.language,
-                    &words,
-                    &phrases,
-                ))
+                if words.len() + phrases.len() == 0 {
+                    None
+                } else {
+                    Some(Mutex::new(SpeechToText::new_with_grammar(
+                        &model_entry.model,
+                        model_entry.language,
+                        &words,
+                        &phrases,
+                    )))
+                }
             })
-            .collect();
+            .collect()
+    }
 
-        self.inner.listeners.insert(ssrc, speech_to_text_instances);
+    pub fn add_listener(&self, ssrc: u32, user_id: u64) {
+        self.inner
+            .listeners
+            .insert(ssrc, self.get_speech_to_text_instances());
         self.inner.user_ids.insert(user_id, ssrc);
     }
 

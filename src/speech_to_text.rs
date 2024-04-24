@@ -7,6 +7,24 @@ pub enum ModelLanguage {
     DUTCH,
 }
 
+impl ModelLanguage {
+    pub fn from_str(language: &str) -> Option<Self> {
+        match language {
+            "english" => Some(Self::ENGLISH),
+            "turkish" => Some(Self::TURKISH),
+            "dutch" => Some(Self::DUTCH),
+            _ => None,
+        }
+    }
+    pub fn to_str(&self) -> &str {
+        match self {
+            Self::ENGLISH => "english",
+            Self::TURKISH => "turkish",
+            Self::DUTCH => "dutch",
+        }
+    }
+}
+
 pub struct SpeechToText {
     recognizer: Recognizer,
     active: bool,
@@ -23,6 +41,7 @@ impl SpeechToText {
         phrases: &[String],
     ) -> Self {
         let grammar: Vec<String> = words.iter().chain(phrases.iter()).cloned().collect();
+        dbg!(&grammar);
         let mut recognizer = Recognizer::new_with_grammar(model, 48000., &grammar)
             .expect("Could not create the Recognizer");
         recognizer.set_words(true);
