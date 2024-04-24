@@ -5,7 +5,9 @@ I made this to get a laugh from my friends while watching f1 together. It used t
 
 # How to run
 
-Install docker composer and use `docker compose up`! Don't forget to set `DISCORD_TOKEN` env variable. Or follow the following instructions.
+!! A bit outdated. I will update with more details later.
+
+Install docker composer and use `docker compose up`! Don't forget to set `DISCORD_TOKEN`, `DATABASE_URL` and `OWNER_ID` env variables.
 
 Only external dependency you need is Opus codec that discord uses. If you are on linux/Mac, You can get it from your package manager. You need to manually build it on windows. Read the [original songbird repo](https://github.com/serenity-rs/songbird?tab=readme-ov-file#dependencies]) for more info.
 
@@ -13,11 +15,12 @@ After ensuring that can run it, to actually run it, change `.env.example` into `
 
 Manually copying lib files to target dir makes cargo recompile it all. I might fix that in future. 
 
-# I might update it in future. 
-- Make dev experience better (build script and copy without recompile)
-  
-
 TODO:
-- sound storage
-- database
+- Make dev experience better (build script and copy without recompile)
+- Checking the integrity of the audio files
+- Compress files before storing
+- Better audio list with buttons etc
+- Preview
 
+Future Plans:
+- Website for uploading and managing sounds.

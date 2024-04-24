@@ -26,7 +26,24 @@ pub async fn ping(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Use channel Id
+#[poise::command(prefix_command, owners_only)]
+pub async fn register(ctx: Context<'_>) -> Result<()> {
+    poise::builtins::register_application_commands_buttons(ctx).await?;
+    Ok(())
+}
+
+#[poise::command(prefix_command, track_edits, slash_command)]
+pub async fn help(
+    ctx: Context<'_>,
+    #[description = "Specific command to show help about"] command: Option<String>,
+) -> Result<()> {
+    let config = poise::builtins::HelpConfiguration {
+        ..Default::default()
+    };
+    poise::builtins::help(ctx, command.as_deref(), config).await?;
+    Ok(())
+}
+
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn join(ctx: Context<'_>) -> Result<()> {
     let (guild_id, channel_id) = {
@@ -101,7 +118,6 @@ pub async fn add_sound(
     #[description = "Language of the prompt"] language: String,
     #[description = "Sound you want to add"] attachment: Attachment,
 ) -> Result<()> {
-    dbg!(&attachment);
     let content = match attachment.download().await {
         Ok(content) => content,
         Err(why) => {
@@ -110,6 +126,19 @@ pub async fn add_sound(
             return Ok(());
         }
     };
+
+    if attachment.size > 2 * 1024 * 1024 {
+        let _ = ctx.reply("File size too large. Max 2mb.").await;
+        return Ok(());
+    }
+
+    if !attachment
+        .content_type
+        .is_some_and(|x| x.starts_with("audio"))
+    {
+        let _ = ctx.reply("Only audio files are supported").await;
+        return Ok(());
+    }
 
     let id = Uuid::new_v4();
     let mut file = match File::create(format!("./songs/{}", id)).await {
@@ -203,6 +232,12 @@ pub async fn list_sounds(ctx: Context<'_>) -> Result<()> {
         .collect::<Vec<String>>()
         .join("\n");
 
+    let sounds = if sounds.is_empty() {
+        "No sounds found".to_string()
+    } else {
+        format!("```{}```", sounds)
+    };
+
     let _ = ctx.reply(sounds).await;
 
     Ok(())
@@ -240,10 +275,6 @@ async fn initiate_handler(
     let models = ctx.data().models.clone();
 
     let voice_handler = sound_board.get_voice_handler(models, player);
-
-    ctx.data()
-        .voice_event_handlers
-        .insert(guild_id, voice_handler.clone());
 
     {
         let mut call_handler = call_handler_lock.lock().await;

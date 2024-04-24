@@ -23,9 +23,8 @@
 //! Sounds robust. Until something will eventually break as always.
 
 use self::{audio_play::SongPlayer, events::VoiceHandler};
-use std::{env, sync::Arc};
+use std::{collections::HashSet, env, sync::Arc};
 
-use dashmap::DashMap;
 use poise::{Framework, FrameworkOptions, PrefixFrameworkOptions};
 
 use serenity::all::{GatewayIntents, GuildId};
@@ -167,7 +166,6 @@ pub struct Data {
     songbird: Arc<songbird::Songbird>,
     models: Arc<Vec<ModelEntry>>,
     database: Arc<Database>,
-    voice_event_handlers: Arc<DashMap<GuildId, VoiceHandler>>,
 }
 
 type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
@@ -182,6 +180,8 @@ pub async fn run() {
 
     let framework_options = FrameworkOptions {
         commands: vec![
+            commands::help(),
+            commands::register(),
             commands::join(),
             commands::leave(),
             commands::ping(),
@@ -193,6 +193,10 @@ pub async fn run() {
             prefix: Some(".".to_string()),
             ..Default::default()
         },
+        owners: HashSet::from([env::var("OWNER_ID")
+            .expect("Expected an owner id")
+            .parse()
+            .unwrap()]),
         ..Default::default()
     };
 
@@ -220,7 +224,6 @@ pub async fn run() {
                 songbird: songbird_client_clone,
                 models: models_clone,
                 database: Arc::new(Database::new().await.unwrap()),
-                voice_event_handlers: Arc::new(DashMap::new()),
             })
         })
     });
