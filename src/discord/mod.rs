@@ -164,22 +164,28 @@ pub async fn run() {
             language: ModelLanguage::DUTCH,
         },
     ];
+    let models = Arc::new(models);
+    let models_clone = models.clone();
 
     let songbird_client_clone = songbird_client.clone();
     let framework = Framework::new(framework_options, |_, _, _| {
         Box::pin(async {
             Ok(Data {
                 songbird: songbird_client_clone,
-                models: Arc::new(models),
+                models: models_clone,
             })
         })
     });
 
+    let songbird_client_clone = songbird_client.clone();
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = serenity::Client::builder(&token, intents)
         .voice_manager_arc(songbird_client)
-        .event_handler(Handler)
+        .event_handler(Handler {
+            models,
+            songbird_client: songbird_client_clone,
+        })
         .framework(framework)
         .await
         .expect("Err creating client");

@@ -11,13 +11,17 @@ use serenity::{
 use songbird::{
     events::EventHandler as VoiceEventHandler,
     model::payload::{ClientDisconnect, Speaking},
-    Event, EventContext,
+    Event, EventContext, Songbird,
 };
 
-use super::{audio_play::SongPlayer, ModelEntry, RecognitionEntries};
 use crate::speech_to_text::SpeechToText;
 
-pub struct Handler;
+use super::{audio_play::SongPlayer, ModelEntry, RecognitionEntries};
+
+pub struct Handler {
+    pub models: Arc<Vec<ModelEntry>>,
+    pub songbird_client: Arc<Songbird>,
+}
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -27,30 +31,20 @@ impl EventHandler for Handler {
     async fn voice_state_update(
         &self,
         ctx: Context,
-        old_voice_state: Option<VoiceState>,
+        _: Option<VoiceState>,
         new_voice_state: VoiceState,
     ) {
-        dbg!(new_voice_state.channel_id);
-        dbg!(old_voice_state.map(|s| s.channel_id));
-        dbg!(new_voice_state.user_id);
-        dbg!(ctx.cache.current_user().id);
-
         if new_voice_state.user_id != ctx.cache.current_user().id {
             return;
         }
-
         // bot disconnected from voice channel
         if new_voice_state.channel_id.is_none() {
-            tracing::warn!("Bot disconnected from voice channel. Attemting to remove handler.");
-            if let (Some(songbird_client), Some(guild_id)) =
-                (songbird::get(&ctx).await, new_voice_state.guild_id)
-            {
-                if let Err(e) = songbird_client.remove(guild_id).await {
-                    tracing::warn!("Failed to remove handler: {:?}", e);
+            if let Some(guild_id) = new_voice_state.guild_id {
+                if let Err(err) = self.songbird_client.remove(guild_id).await {
+                    tracing::error!("Failed to remove handler: {:?}", err);
                 }
             }
         }
-
     }
 }
 
@@ -123,6 +117,11 @@ impl Receiver {
         }
     }
 
+    pub fn reset_listeners(&self) {
+        self.inner.listeners.clear();
+        self.inner.user_ids.clear();
+    }
+
     pub async fn finalise(&self, ssrc: u32) {
         if let Some(listeners) = self.inner.listeners.get(&ssrc) {
             for listener in listeners.iter() {
@@ -164,6 +163,18 @@ impl VoiceEventHandler for Receiver {
 
             Ctx::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
                 self.remove_listener(user_id.0)
+            }
+            Ctx::DriverDisconnect(disconnect_data) => {
+                // This happens when the bot is disconnected or the bot is moved to another channel
+                self.reset_listeners();
+                if let Some(reason) = &disconnect_data.reason {
+                    tracing::info!("Driver disconnected: {:?}", reason);
+                }
+            }
+            Ctx::DriverReconnect(reconnect_data) => {
+                // Idk what causes this
+                self.reset_listeners();
+                tracing::warn!("Driver reconnected: {:?}", reconnect_data);
             }
             _ => {}
         }

@@ -31,13 +31,6 @@ pub async fn join(ctx: Context<'_>) -> Result<()> {
         (guild.id, channel_id)
     };
 
-    let connected_channel: Option<ChannelId> = ctx
-        .guild()
-        .unwrap()
-        .voice_states
-        .get(&ctx.framework().bot_id)
-        .and_then(|voice_state| voice_state.channel_id);
-
     let connect_to = match channel_id {
         Some(channel) => channel,
         None => {
@@ -45,6 +38,13 @@ pub async fn join(ctx: Context<'_>) -> Result<()> {
             return Ok(());
         }
     };
+
+    let connected_channel: Option<ChannelId> = ctx
+        .guild()
+        .unwrap()
+        .voice_states
+        .get(&ctx.framework().bot_id)
+        .and_then(|voice_state| voice_state.channel_id);
 
     if let Some(connected_channel) = connected_channel {
         if connected_channel == connect_to {
@@ -56,7 +56,6 @@ pub async fn join(ctx: Context<'_>) -> Result<()> {
     let songbird_client = &ctx.data().songbird;
 
     if let Ok(handler_lock) = songbird_client.join(guild_id, connect_to).await {
-        // NOTE: this skips listening for the actual connection result.
         let mut handler = handler_lock.lock().await;
 
         let sound_board = SoundBoard::new()
@@ -86,9 +85,12 @@ pub async fn join(ctx: Context<'_>) -> Result<()> {
 
         let evt_receiver = sound_board.get_receiver(models, player);
 
+        handler.remove_all_global_events();
         handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), evt_receiver.clone());
         handler.add_global_event(CoreEvent::ClientDisconnect.into(), evt_receiver.clone());
-        handler.add_global_event(CoreEvent::VoiceTick.into(), evt_receiver);
+        handler.add_global_event(CoreEvent::VoiceTick.into(), evt_receiver.clone());
+        handler.add_global_event(CoreEvent::DriverDisconnect.into(), evt_receiver.clone());
+        handler.add_global_event(CoreEvent::DriverReconnect.into(), evt_receiver);
 
         check_msg(ctx.say(format!("Joined {}", connect_to.mention())).await);
     } else {
@@ -106,7 +108,7 @@ pub async fn leave(ctx: Context<'_>) -> Result<()> {
     let has_handler = songbird_client.get(guild_id).is_some();
 
     if has_handler {
-        if let Err(e) = songbird_client.remove(guild_id).await {
+        if let Err(e) = songbird_client.leave(guild_id).await {
             check_msg(ctx.say(format!("Failed: {:?}", e)).await);
         }
 
