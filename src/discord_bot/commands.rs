@@ -112,7 +112,7 @@ pub async fn add_sound(
     };
 
     let id = Uuid::new_v4();
-    let mut file = match File::create(format!("songs/{}", id)).await {
+    let mut file = match File::create(format!("./songs/{}", id)).await {
         Ok(file) => file,
         Err(why) => {
             tracing::error!("Error creating file: {:?}", why);
