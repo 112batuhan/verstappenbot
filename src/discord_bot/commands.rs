@@ -44,6 +44,9 @@ pub async fn help(
     Ok(())
 }
 
+/// Information about the bot
+///
+/// Shows the Github link and the owner's Discord tag.
 #[poise::command(prefix_command, slash_command)]
 pub async fn info(ctx: Context<'_>) -> Result<()> {
     let owner = ctx.framework().options().owners.iter().next().unwrap();
@@ -59,6 +62,7 @@ pub async fn info(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
+/// invite link for the bot
 #[poise::command(prefix_command, slash_command)]
 pub async fn invite(ctx: Context<'_>) -> Result<()> {
     let invite_link = "https://discord.com/oauth2/authorize?client_id=1213040318195437598&permissions=274914675712&scope=bot%20applications.commands";
@@ -69,6 +73,7 @@ pub async fn invite(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Joins the user's voice channel if they are in one.
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn join(ctx: Context<'_>) -> Result<()> {
     let (guild_id, channel_id) = {
@@ -115,6 +120,7 @@ pub async fn join(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Leaves the voice channel
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn leave(ctx: Context<'_>) -> Result<()> {
     let guild_id = ctx.guild_id().unwrap();
@@ -135,6 +141,10 @@ pub async fn leave(ctx: Context<'_>) -> Result<()> {
 
     Ok(())
 }
+
+/// Add a sound for the server.
+///
+/// The sound can be any audio file. Maximum file size is 2mb.
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn add_sound(
     ctx: Context<'_>,
@@ -212,8 +222,14 @@ pub async fn add_sound(
     Ok(())
 }
 
+/// Remove a sound from the server.
+///
+/// You need to write the exact prompt.
 #[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn remove_sound(ctx: Context<'_>, prompt: String) -> Result<()> {
+pub async fn remove_sound(
+    ctx: Context<'_>,
+    #[description = "Prompt of the sound you want to delete"] prompt: String,
+) -> Result<()> {
     let trimmed_prompt = prompt.trim();
     if trimmed_prompt.is_empty() {
         let _ = ctx.reply("Prompt cannot be empty").await;
@@ -243,6 +259,7 @@ pub async fn remove_sound(ctx: Context<'_>, prompt: String) -> Result<()> {
     Ok(())
 }
 
+/// List all the sounds in the server.
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn list_sounds(ctx: Context<'_>) -> Result<()> {
     let sounds = ctx
