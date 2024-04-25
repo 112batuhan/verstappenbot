@@ -44,6 +44,31 @@ pub async fn help(
     Ok(())
 }
 
+#[poise::command(prefix_command, slash_command)]
+pub async fn info(ctx: Context<'_>) -> Result<()> {
+    let owner = ctx.framework().options().owners.iter().next().unwrap();
+    let github_link = "https://github.com/112batuhan/verstappenbot";
+    check_msg(
+        ctx.reply(format!(
+            "Check out the Github for more information:\n{}\nYou can contact me on Discord:{}",
+            github_link,
+            owner.mention(),
+        ))
+        .await,
+    );
+    Ok(())
+}
+
+#[poise::command(prefix_command, slash_command)]
+pub async fn invite(ctx: Context<'_>) -> Result<()> {
+    let invite_link = "https://discord.com/oauth2/authorize?client_id=1213040318195437598&permissions=274914675712&scope=bot%20applications.commands";
+    check_msg(
+        ctx.reply(format!("Invite me to your server:\n{}", invite_link))
+            .await,
+    );
+    Ok(())
+}
+
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn join(ctx: Context<'_>) -> Result<()> {
     let (guild_id, channel_id) = {

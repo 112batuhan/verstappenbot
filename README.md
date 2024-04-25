@@ -1,7 +1,13 @@
 # A discord bot.
+
+You can think of it as `voice controlled soundboard`
+
 Bot listens -> Vosk speech to text model transcribes -> Bot plays a particular song if certain words are heard. 
 
-I made this to get a laugh from my friends while watching f1 together. It used to support only one prompt. I liked the idea so much, I made it into a bot that is usable by everyone.
+# How to use
+Invite the bot using the [link](https://discord.com/oauth2/authorize?client_id=1213040318195437598&permissions=274914675712&scope=bot%20applications.commands)
+
+Use `/help` command to see what you can do.
 
 # How to run
 
@@ -24,3 +30,6 @@ TODO:
 
 Future Plans:
 - Website for uploading and managing sounds.
+
+# Why Verstappenbot?
+I made this to get a laugh from my friends while watching f1 together. It used to support only one prompt. I made it so that the bot played "dududu max verstappen" when it head "verstappen". Everyone liked the idea so much, so I made it into a bot that is usable by everyone.

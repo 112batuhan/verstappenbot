@@ -180,6 +180,8 @@ pub async fn run() {
 
     let framework_options = FrameworkOptions {
         commands: vec![
+            commands::invite(),
+            commands::info(),
             commands::help(),
             commands::register(),
             commands::join(),
