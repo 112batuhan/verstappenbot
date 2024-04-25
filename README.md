@@ -8,6 +8,7 @@ Bot listens -> Vosk speech to text model transcribes -> Bot plays a particular s
 Invite the bot using the [link](https://discord.com/oauth2/authorize?client_id=1213040318195437598&permissions=274914675712&scope=bot%20applications.commands)
 
 Use `/help` command to see what you can do.
+Only english, turkish and dutch is supported. Contact me for further language support.
 
 # How to run
 

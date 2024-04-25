@@ -145,12 +145,13 @@ pub async fn leave(ctx: Context<'_>) -> Result<()> {
 /// Add a sound for the server.
 ///
 /// The sound can be any audio file. Maximum file size is 2mb.
+/// Supported languages: "english", "dutch", "turkish"
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn add_sound(
     ctx: Context<'_>,
     #[description = "Prompt for the sound. Add phrases instead of single words to reduce false positives."]
     prompt: String,
-    #[description = "Language of the prompt"] language: String,
+    #[description = "Language of the prompt: \"english\", \"dutch\", \"turkish\""] language: String,
     #[description = "Sound you want to add"] attachment: Attachment,
 ) -> Result<()> {
     let content = match attachment.download().await {
